@@ -1,7 +1,7 @@
 ---
 title: "GF-0604 Procesamiento de datos geográficos<br>Laboratorio 04: R - Datos raster 1"
-author: "Manuel Vargas"
-date: "2020-06-11"
+author: "Steven Guillén Rivera "
+date: "2020-06-16"
 output:
   html_document:
     theme: readable    
@@ -41,3 +41,133 @@ Elabore un mapa web que contenga:
 
 
 Los mapas deben ser implementados con el paquete ```Leaflet```.
+
+```{r results='hide', warning = FALSE, message=FALSE}
+# Paquete para manejo de datos vectoriales
+library(sf)
+# Paquete de Tidyverse para manipulación de datos
+library(dplyr)
+# Paquete para mapas en la Web
+library(leaflet)
+```
+```{r eval = F}
+# Instalación del paquete raster
+install.packages("raster")
+# Instalación del paquete raster
+install.packages("rgdal")
+```
+```{r results='hide', warning = FALSE, message=FALSE}
+# Carga del paquete raster
+library(raster)
+# Carga del paquete rgdal
+library(rgdal)
+```
+```{r}
+# Directorio de trabajo
+setwd("c:/users/CEACOT-B/")
+# Consulta del directorio de trabajo
+getwd()
+# Datos de altitud
+altitude <- getData("worldclim", var="alt", res=.5, lon=-84, lat=10)
+# Datos de altitud recortados para los límites aproximados de Costa Rica
+cr_altitude <- crop(altitude, extent(-86, -82.3, 8, 11.3))	
+plot(cr_altitude)
+# Datos de precipitación anual
+ precipitation <- getData("worldclim", var="bio", res=.5, lon=-84, lat=10)
+ # Datos de precipitación anual recortados para los límites aproximados de Costa Rica
+ cr_precipitation <- crop(precipitation$bio12_23, extent(-86, -82.3, 8, 11.3))
+ plot(cr_precipitation)
+ 
+```
+```{r results='hide', warning = FALSE, message=FALSE}
+# Registros de presencia de Ara ambiguus (lapa verde) en Costa Rica
+cr_ara_ambiguus <-
+  st_read(
+    "https://raw.githubusercontent.com/geoprocesamiento-2020i/datos/master/biodiversidad/registros-presencia/cr/cr-ara-ambiguus.geojson"
+  )
+```
+```{r results='hide', warning = FALSE, message=FALSE}
+# Registros de presencia de Pharomachrus mocinno (quetzal) en Costa Rica
+cr_pharomachrus_mocinno <-
+  st_read(
+    "https://raw.githubusercontent.com/geoprocesamiento-2020i/datos/master/biodiversidad/registros-presencia/cr/cr_pharomachrus_mocinno.geojson"
+  )
+```
+
+#### Confección de mapas
+```{r results='hide', warning = FALSE}
+
+ pal <- colorNumeric(
+   c("#507e4e","#e5ff00","#ff0000"), 
+   values(cr_altitude), 
+   na.color = "transparent"
+ )
+ 
+ pall <- colorBin("Blues",values(cr_precipitation) , na.color = "transparent")
+
+m <- leaflet() %>% 
+  addProviderTiles(providers$Esri.WorldImagery, group = "Imágenes de ESRI") %>% 
+  addProviderTiles(providers$Stamen.TonerLite, group = "Stamen Toner Lite") %>%
+  addProviderTiles(providers$OpenStreetMap.Mapnik, group = "OpenStreetMap") %>%
+  addCircleMarkers(data = cr_ara_ambiguus,
+                   stroke = F,
+                   radius = 4,
+                   fillColor = 'green',
+                   fillOpacity = 1,
+                   group = "Ara ambiguus",
+                   popup = paste(cr_ara_ambiguus$locality, 
+                                 cr_ara_ambiguus$year, 
+                                 sep = '<br/>'
+                           )
+  ) %>%
+  
+   addCircleMarkers(data = cr_pharomachrus_mocinno,
+                   stroke = F,
+                   radius = 3,
+                   fillColor = 'red',
+                   fillOpacity = 1,
+                   group = "Pharomachrus mocinno",
+                   popup = paste(cr_pharomachrus_mocinno$locality, 
+                                 cr_pharomachrus_mocinno$year, 
+                                 sep = '<br/>'
+                           )
+  ) %>%
+  
+  addRasterImage(cr_altitude, 
+                 colors = pal, 
+                 opacity = 0.8, 
+                 group = "Altitud"
+  ) %>%
+    addRasterImage(cr_precipitation, 
+                 colors = pall, 
+                 opacity = 0.8, 
+                 group = "Precipitación anual"
+  ) %>%
+  addLayersControl(
+    baseGroups = c("OpenStreetMap", "Stamen Toner Lite", "Imágenes de ESRI"),
+    overlayGroups = c("Altitud", "Ara ambiguus","Pharomachrus mocinno","Precipitación anual"),
+    options = layersControlOptions(collapsed = FALSE)    
+  ) %>%
+  addLegend(pal = pal, 
+            values = values(cr_altitude), 
+            title = "Altitud"
+  ) %>%
+  
+  addLegend(pal = pall, 
+            values = values(cr_precipitation), 
+            position = "topleft",
+            title = "Precipitación anual"
+  ) %>%
+  addMiniMap(
+    toggleDisplay = TRUE,
+    position = "bottomleft",
+    tiles = providers$Stamen.TonerLite
+  )
+```
+```{r}
+# Despliegue del mapa
+m
+```
+
+
+
